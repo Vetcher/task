@@ -101,7 +101,7 @@ func (d *Director) execWorkerLoop(wp *workplace) {
 		args = wp.params.firstArgs
 	)
 	defer wp.syncs.loopSync.Done()
-	for i := newLoopController(wp.params.workNumber); i.Check(); i.Inc() {
+	for i := newLoopController(wp.params.amountOfExecutions); i.Check(); i.Inc() {
 		args, ok = d.execWorker(wp, args...)
 		if !ok {
 			return
@@ -148,6 +148,9 @@ func (d *Director) execWorker(wp *workplace, args ...interface{}) ([]interface{}
 	if err != nil {
 		if wp.params.notifyOnError {
 			wp.params.notifyOnErrorChan <- err
+		}
+		if wp.params.panicOnError {
+			panic(err)
 		}
 		if wp.params.stopOnError {
 			return results, false
