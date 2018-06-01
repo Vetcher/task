@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
@@ -14,6 +13,7 @@ var (
 	DirectorNotWorks     = errors.New("director is not working yet")
 )
 
+// The main figure in working process.
 type Director struct {
 	workplaces map[string]workplace
 	options    directorOptions
@@ -23,6 +23,8 @@ type Director struct {
 	execWorkplacesGroup sync.WaitGroup
 }
 
+// NewDirector creates director, which observes workers.
+// Director may take some options
 func NewDirector(options ...DirectorOption) *Director {
 	o := defaultOptions()
 	for _, option := range options {
@@ -34,6 +36,7 @@ func NewDirector(options ...DirectorOption) *Director {
 	}
 }
 
+// With attaches Worker to Director with given parameters, worker with parameters is a Workplace.
 func (d *Director) With(worker Worker, params ...WorkerParameter) *Director {
 	if d.started {
 		panic(DirectorAlreadyWorks)
@@ -45,18 +48,21 @@ func (d *Director) With(worker Worker, params ...WorkerParameter) *Director {
 		param(&p)
 	}
 	wp := workplace{
-		id:     d.options.idGenerator(),
 		worker: worker,
 		params: p,
 		syncs:  &workplaceSyncs{},
 	}
 	if wp.params.id != "" {
 		wp.id = wp.params.id
+	} else {
+		wp.id = d.options.idGenerator()
 	}
 	d.workplaces[wp.id] = wp
 	return d
 }
 
+// Begin begins workers executions.
+// Panics, when call on already working director.
 func (d *Director) Begin(params ...WorkerParameter) {
 	if d.started {
 		panic(DirectorAlreadyWorks)
@@ -77,6 +83,7 @@ func (d *Director) Begin(params ...WorkerParameter) {
 }
 
 // Wait waits until all workplaces done their work.
+// Panics on calling not working director.
 func (d *Director) Wait() {
 	if !d.started {
 		panic(DirectorNotWorks)
@@ -86,6 +93,8 @@ func (d *Director) Wait() {
 	}
 }
 
+// start execution of some workplace.
+// begin listening on channels, tickers and loop executions.
 func (d *Director) execWorkplace(id string) {
 	defer d.execWorkplacesGroup.Done()
 	workplace := d.workplaces[id]
@@ -95,19 +104,25 @@ func (d *Director) execWorkplace(id string) {
 	d.listenEventChannels(&workplace)
 }
 
+// begin execution loop.
+// It may be executes limit or infinite times.
 func (d *Director) execWorkerLoop(wp *workplace) {
 	var (
 		ok   bool
 		args = wp.params.firstArgs
 	)
 	defer wp.syncs.loopSync.Done()
-	for i := newLoopController(wp.params.amountOfExecutions); i.Check(); i.Inc() {
+	timer := time.NewTimer(0)
+	timer.Stop()
+	defer timer.Stop()
+	for i := newLoopController(wp.params.amountOfExecutions); i.check(); i.inc() {
 		args, ok = d.execWorker(wp, args...)
 		if !ok {
 			return
 		}
 		if wp.params.timeoutFunc != nil {
-			time.Sleep(wp.params.timeoutFunc())
+			timer.Reset(wp.params.timeoutFunc())
+			<-timer.C
 		}
 	}
 }
@@ -119,6 +134,7 @@ func (d *Director) execWorkerTickers(wp *workplace) {
 	}
 }
 
+// executes infinite amount of times until worker execution not fails.
 func (d *Director) execWorkerWithTicker(wp *workplace, duration time.Duration) {
 	var (
 		ok   bool
@@ -135,15 +151,16 @@ func (d *Director) execWorkerWithTicker(wp *workplace, duration time.Duration) {
 	}
 }
 
+// Executes worker one time. After execution, checks parameters and concurrently executes next workers in list with results of the execution.
 func (d *Director) execWorker(wp *workplace, args ...interface{}) ([]interface{}, bool) {
 	var (
 		results []interface{}
 		err     error
 	)
 	if len(args) == 0 {
-		results, err = wp.worker.Work(context.TODO())
+		results, err = wp.worker.Work(wp.params.rootContext)
 	} else {
-		results, err = wp.worker.Work(context.TODO(), args...)
+		results, err = wp.worker.Work(wp.params.rootContext, args...)
 	}
 	if err != nil {
 		if wp.params.notifyOnError {
@@ -172,6 +189,7 @@ func (d *Director) listenEventChannels(wp *workplace) {
 	}
 }
 
+// Begin listening on one channel and trigger execution when something comes in.
 func (d *Director) listenChannel(wp *workplace, chanIndex int) {
 	defer wp.syncs.eventSync.Done()
 	for event := range wp.params.eventChannels[chanIndex] {
@@ -196,11 +214,11 @@ func newLoopController(max int) *loopController {
 	}
 }
 
-func (c *loopController) Check() bool {
+func (c *loopController) check() bool {
 	return c.inf || c.n < c.max
 }
 
-func (c *loopController) Inc() {
+func (c *loopController) inc() {
 	if !c.inf {
 		c.n++
 	}
@@ -210,6 +228,7 @@ func uuidGen() string {
 	return uuid.NewV4().String()
 }
 
+// Generic option for director.
 type DirectorOption func(*directorOptions)
 
 func defaultOptions() directorOptions {
@@ -222,6 +241,7 @@ type directorOptions struct {
 	idGenerator func() string
 }
 
+// WithIdGenerator sets generator function that should generate unique ids for workers, when id for worker not set directly.
 func WithIdGenerator(generator func() string) DirectorOption {
 	return func(options *directorOptions) {
 		options.idGenerator = generator

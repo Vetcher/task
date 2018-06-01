@@ -2,37 +2,34 @@ package task
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 )
 
 type WorkplaceStatus struct {
-	mx      sync.Mutex
-	working uint
-	started uint
-	next    Worker
+	working  uint64
+	executed uint64
+	next     Worker
 }
 
 func NewWorkerStatus(next Worker) *WorkplaceStatus {
-	return &WorkplaceStatus{next: next}
+	return &WorkplaceStatus{
+		next: next,
+	}
 }
 
 func (s *WorkplaceStatus) Work(ctx context.Context, args ...interface{}) ([]interface{}, error) {
-	s.mx.Lock()
-	s.working++
-	s.started++
-	s.mx.Unlock()
+	atomic.AddUint64(&s.working, 1)
+	atomic.AddUint64(&s.executed, 1)
 	defer func() {
-		s.mx.Lock()
-		s.working--
-		s.mx.Unlock()
+		atomic.AddUint64(&s.working, -1)
 	}()
 	return s.next.Work(ctx, args...)
 }
 
 func (s *WorkplaceStatus) Busy() bool {
-	return s.working == 0
+	return atomic.LoadUint64(&s.working) == 0
 }
 
-func (s *WorkplaceStatus) Status() (working, started uint) {
-	return s.working, s.started
+func (s *WorkplaceStatus) Status() (working, executed uint64) {
+	return atomic.LoadUint64(&s.working), atomic.LoadUint64(&s.executed)
 }

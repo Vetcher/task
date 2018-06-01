@@ -3,6 +3,8 @@
 Director observes workers and tell them what and when they should do.
 Workers do work.
 
+Check more at [godoc](https://godoc.org/github.com/vetcher/task)
+
 ### Available parameters
 
 #### Director params

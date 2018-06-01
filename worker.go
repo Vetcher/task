@@ -7,10 +7,12 @@ import (
 
 // Worker is an instance that should do some work.
 // It takes execution context and any amount of arguments and returns any amount of results and error.
+// Arguments comes from triggers or executions of previous worker in chain.
 type Worker interface {
 	Work(ctx context.Context, args ...interface{}) ([]interface{}, error)
 }
 
+// Generic parameter for worker.
 type WorkerParameter func(*workerParams)
 
 type workerParams struct {
@@ -57,7 +59,8 @@ func WithTimeoutFunc(timeoutFunc func() time.Duration) WorkerParameter {
 	}
 }
 
-// Repeat sets amount of executions for worker. For negative values of `n` worker will executes infinitely.
+// Repeat sets amount of executions for worker.
+// For negative values of `n` worker will executes infinitely.
 // 0 by default.
 func Repeat(n int) WorkerParameter {
 	return func(params *workerParams) {
@@ -78,8 +81,8 @@ func WithArgs(args ...interface{}) WorkerParameter {
 	}
 }
 
-// Listen adds channels to subscribe list. Execute worker, when something received from any channel.
-func Listen(channels ...<-chan interface{}) WorkerParameter {
+// TriggenOn adds channels to subscribe list. Execute worker, when something received from any channel.
+func TriggenOn(channels ...<-chan interface{}) WorkerParameter {
 	return func(params *workerParams) {
 		params.eventChannels = append(params.eventChannels, channels...)
 	}
