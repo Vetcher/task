@@ -2,7 +2,9 @@ package task
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
+	"time"
 )
 
 type WorkplaceStatus struct {
@@ -32,4 +34,47 @@ func (s *WorkplaceStatus) Busy() bool {
 
 func (s *WorkplaceStatus) Status() (working, executed uint64) {
 	return atomic.LoadUint64(&s.working), atomic.LoadUint64(&s.executed)
+}
+
+var TimeoutError = errors.New("execution timeout")
+
+type TimeoutMiddleware struct {
+	timeout time.Duration
+	next    Worker
+}
+
+func NewWorkerTimeout(next Worker, timeout time.Duration) *TimeoutMiddleware {
+	return &TimeoutMiddleware{
+		next:    next,
+		timeout: timeout,
+	}
+}
+
+func (s *TimeoutMiddleware) Work(ctx context.Context, args ...interface{}) ([]interface{}, error) {
+	timer := time.NewTimer(s.timeout)
+	defer timer.Stop()
+	result := make(chan []interface{})
+	e := make(chan error)
+	go func() {
+		x, err := s.next.Work(ctx, args...)
+		if err != nil {
+			e <- err
+		} else {
+			result <- x
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-timer.C:
+		return nil, TimeoutError
+	case r := <-result:
+		close(result)
+		close(e)
+		return r, nil
+	case err := <-e:
+		close(result)
+		close(e)
+		return nil, err
+	}
 }

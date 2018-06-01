@@ -18,7 +18,7 @@ type WorkerParameter func(*workerParams)
 type workerParams struct {
 	id                 string
 	firstArgs          []interface{}
-	timeoutFunc        func() time.Duration
+	delayFunc          func() time.Duration
 	amountOfExecutions int
 	nextWorkers        []string
 	notifyOnError      bool
@@ -46,16 +46,16 @@ func Id(id string) WorkerParameter {
 	}
 }
 
-// WithTimeout sets timeout for loop executions.
+// WithDelay sets constant delay for loop executions.
 // 0 by default.
-func WithTimeout(duration time.Duration) WorkerParameter {
-	return WithTimeoutFunc(func() time.Duration { return duration })
+func WithDelay(duration time.Duration) WorkerParameter {
+	return WithDelayFunc(func() time.Duration { return duration })
 }
 
-// WithTimeoutFunc sets timeout rule for loop executions.
-func WithTimeoutFunc(timeoutFunc func() time.Duration) WorkerParameter {
+// WithDelayFunc sets delay rule for loop executions.
+func WithDelayFunc(delayFunc func() time.Duration) WorkerParameter {
 	return func(params *workerParams) {
-		params.timeoutFunc = timeoutFunc
+		params.delayFunc = delayFunc
 	}
 }
 

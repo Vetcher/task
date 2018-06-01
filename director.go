@@ -120,8 +120,8 @@ func (d *Director) execWorkerLoop(wp *workplace) {
 		if !ok {
 			return
 		}
-		if wp.params.timeoutFunc != nil {
-			timer.Reset(wp.params.timeoutFunc())
+		if wp.params.delayFunc != nil {
+			timer.Reset(wp.params.delayFunc())
 			<-timer.C
 		}
 	}
