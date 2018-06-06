@@ -116,6 +116,11 @@ func (d *Director) execWorkerLoop(wp *workplace) {
 	timer.Stop()
 	defer timer.Stop()
 	for i := newLoopController(wp.params.amountOfExecutions); i.check(); i.inc() {
+		select {
+		case <-wp.params.rootContext.Done():
+			return
+		default:
+		}
 		l := time.Now()
 		args, ok = d.execWorker(wp, args...)
 		if !ok {
@@ -127,6 +132,7 @@ func (d *Director) execWorkerLoop(wp *workplace) {
 			case <-wp.params.rootContext.Done():
 				return
 			case <-timer.C:
+				continue
 			}
 		}
 	}
