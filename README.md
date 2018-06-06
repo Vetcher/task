@@ -16,5 +16,5 @@ Check more at [godoc](https://godoc.org/github.com/vetcher/task)
 2. `Repeat(int)` execute worker `n` times. 0 by default. For negative values of `n` executes infinitely.
 3. `Infinitely()` execute worker infinitely.
 4. `WithTimeout(time.Duration)` set timeout for loop executions.
-5. `WithTimeoutFunc(func() time.Duration)` set timeout rule for loop executions.
+5. `WithTimeoutFunc(func(time.Time) time.Duration)` set timeout rule for loop executions.
 6. `WithArgs(...interface{})` sets args for first worker execution.
