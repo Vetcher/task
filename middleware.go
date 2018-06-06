@@ -23,7 +23,7 @@ func (s *WorkplaceStatus) Work(ctx context.Context, args ...interface{}) ([]inte
 	atomic.AddUint64(&s.working, 1)
 	atomic.AddUint64(&s.executed, 1)
 	defer func() {
-		atomic.AddUint64(&s.working, -1)
+		atomic.AddUint64(&s.working, ^uint64(0))
 	}()
 	return s.next.Work(ctx, args...)
 }

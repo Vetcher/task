@@ -81,8 +81,8 @@ func WithArgs(args ...interface{}) WorkerParameter {
 	}
 }
 
-// TriggenOn adds channels to subscribe list. Execute worker, when something received from any channel.
-func TriggenOn(channels ...<-chan interface{}) WorkerParameter {
+// TriggerOn adds channels to subscribe list. Execute worker, when something received from any channel.
+func TriggerOn(channels ...<-chan interface{}) WorkerParameter {
 	return func(params *workerParams) {
 		params.eventChannels = append(params.eventChannels, channels...)
 	}
