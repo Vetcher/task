@@ -116,13 +116,18 @@ func (d *Director) execWorkerLoop(wp *workplace) {
 	timer.Stop()
 	defer timer.Stop()
 	for i := newLoopController(wp.params.amountOfExecutions); i.check(); i.inc() {
+		l := time.Now()
 		args, ok = d.execWorker(wp, args...)
 		if !ok {
 			return
 		}
 		if wp.params.delayFunc != nil {
-			timer.Reset(wp.params.delayFunc())
-			<-timer.C
+			timer.Reset(wp.params.delayFunc(l))
+			select {
+			case <-wp.params.rootContext.Done():
+				return
+			case <-timer.C:
+			}
 		}
 	}
 }
@@ -142,10 +147,15 @@ func (d *Director) execWorkerWithTicker(wp *workplace, duration time.Duration) {
 	)
 	defer wp.syncs.tickerSync.Done()
 	ticker := time.NewTicker(duration)
-	for range ticker.C {
-		args, ok = d.execWorker(wp, args...)
-		if !ok {
-			ticker.Stop()
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			args, ok = d.execWorker(wp, args...)
+			if !ok {
+				return
+			}
+		case <-wp.params.rootContext.Done():
 			return
 		}
 	}
@@ -192,9 +202,14 @@ func (d *Director) listenEventChannels(wp *workplace) {
 // Begin listening on one channel and trigger execution when something comes in.
 func (d *Director) listenChannel(wp *workplace, chanIndex int) {
 	defer wp.syncs.eventSync.Done()
-	for event := range wp.params.eventChannels[chanIndex] {
-		_, ok := d.execWorker(wp, event)
-		if !ok {
+	for {
+		select {
+		case event := <-wp.params.eventChannels[chanIndex]:
+			_, ok := d.execWorker(wp, event)
+			if !ok {
+				return
+			}
+		case <-wp.params.rootContext.Done():
 			return
 		}
 	}

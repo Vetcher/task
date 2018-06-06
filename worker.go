@@ -89,6 +89,7 @@ func TriggenOn(channels ...<-chan interface{}) WorkerParameter {
 }
 
 // Every adds duration to ticker list.
+// Each Every applied as OR, so Every(time.Second), Every(time.Second*2) will start one worker each second and two workers each two seconds.
 func Every(duration time.Duration) WorkerParameter {
 	return func(params *workerParams) {
 		params.tickerDurations = append(params.tickerDurations, duration)
@@ -104,6 +105,7 @@ func NotifyError(errCh chan<- error) WorkerParameter {
 }
 
 // IgnoreWorkerErrors sets flag, that continues worker execution if error was occurred.
+//
 // False by default.
 func IgnoreWorkerErrors(ignore bool) WorkerParameter {
 	return func(params *workerParams) {
@@ -112,6 +114,7 @@ func IgnoreWorkerErrors(ignore bool) WorkerParameter {
 }
 
 // PanicOnError sets panic flag. if error was occurred, director will panic.
+//
 // False by default.
 func PanicOnError(p bool) WorkerParameter {
 	return func(params *workerParams) {
@@ -120,6 +123,9 @@ func PanicOnError(p bool) WorkerParameter {
 }
 
 // WithContext sets worker execution context.
+// Director looks at context.Done() and when it triggers, director stops all new worker executions.
+// It does not stops currently working workers, which were stated as next element in chain execution by Next() declaration. In this case, you should stop it by yourself.
+//
 // context.Background by default.
 func WithContext(ctx context.Context) WorkerParameter {
 	return func(params *workerParams) {
