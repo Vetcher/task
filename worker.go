@@ -18,7 +18,7 @@ type WorkerParameter func(*workerParams)
 type workerParams struct {
 	id                 string
 	firstArgs          []interface{}
-	delayFunc          func() time.Duration
+	delayFunc          func(time.Time) time.Duration
 	amountOfExecutions int
 	nextWorkers        []string
 	notifyOnError      bool
@@ -49,11 +49,11 @@ func Id(id string) WorkerParameter {
 // WithDelay sets constant delay for loop executions.
 // 0 by default.
 func WithDelay(duration time.Duration) WorkerParameter {
-	return WithDelayFunc(func() time.Duration { return duration })
+	return WithDelayFunc(func(time.Time) time.Duration { return duration })
 }
 
 // WithDelayFunc sets delay rule for loop executions.
-func WithDelayFunc(delayFunc func() time.Duration) WorkerParameter {
+func WithDelayFunc(delayFunc func(last time.Time) time.Duration) WorkerParameter {
 	return func(params *workerParams) {
 		params.delayFunc = delayFunc
 	}
